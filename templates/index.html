@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SpendWise — Personal Expense Tracker</title>
+    <meta name="description" content="Track your daily expenses, visualize monthly spending trends, and manage your budget with ease.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar / Navigation Header -->
+        <header class="app-header">
+            <div class="header-inner">
+                <div class="brand-section">
+                    <div class="logo-badge">
+                        <i data-lucide="wallet" class="logo-icon"></i>
+                    </div>
+                    <div class="brand-text">
+                        <h1 class="brand-title">SpendWise</h1>
+                        <span class="brand-tagline">Personal Expense Intelligence</span>
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <!-- Theme Toggle -->
+                    <button id="themeToggleBtn" class="btn-icon" title="Toggle Light/Dark Theme" aria-label="Toggle Theme">
+                        <i data-lucide="sun" id="themeIconLight" class="theme-icon"></i>
+                        <i data-lucide="moon" id="themeIconDark" class="theme-icon hidden"></i>
+                    </button>
+
+                    <!-- Export CSV Button -->
+                    <button id="exportCsvBtn" class="btn-secondary" title="Export transactions to CSV">
+                        <i data-lucide="download" class="btn-icon-svg"></i>
+                        <span class="btn-label">Export CSV</span>
+                    </button>
+
+                    <!-- Add Expense CTA -->
+                    <button id="openAddModalBtn" class="btn-primary" title="Add a new expense">
+                        <i data-lucide="plus-circle" class="btn-icon-svg"></i>
+                        <span>Add Expense</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-main">
+            <!-- Metrics Overview Cards -->
+            <section class="metrics-grid" aria-label="Key Spending Metrics">
+                <div class="metric-card metric-primary">
+                    <div class="metric-header">
+                        <span class="metric-label">Total Spending</span>
+                        <div class="metric-icon-wrap icon-primary">
+                            <i data-lucide="dollar-sign"></i>
+                        </div>
+                    </div>
+                    <div class="metric-value-row">
+                        <h2 class="metric-value" id="totalSpendingValue">$0.00</h2>
+                    </div>
+                    <div class="metric-footer">
+                        <span class="metric-subtext" id="totalSpendingSubtitle">Across all records</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Total Transactions</span>
+                        <div class="metric-icon-wrap icon-info">
+                            <i data-lucide="receipt"></i>
+                        </div>
+                    </div>
+                    <div class="metric-value-row">
+                        <h2 class="metric-value" id="transactionCountValue">0</h2>
+                    </div>
+                    <div class="metric-footer">
+                        <span class="metric-subtext" id="transactionCountSubtitle">Recorded items</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Highest Expense</span>
+                        <div class="metric-icon-wrap icon-warning">
+                            <i data-lucide="trending-up"></i>
+                        </div>
+                    </div>
+                    <div class="metric-value-row">
+                        <h2 class="metric-value" id="highestExpenseValue">$0.00</h2>
+                    </div>
+                    <div class="metric-footer">
+                        <span class="metric-subtext truncate" id="highestExpenseTitle">None recorded</span>
+                    </div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Average Expense</span>
+                        <div class="metric-icon-wrap icon-success">
+                            <i data-lucide="scale"></i>
+                        </div>
+                    </div>
+                    <div class="metric-value-row">
+                        <h2 class="metric-value" id="averageExpenseValue">$0.00</h2>
+                    </div>
+                    <div class="metric-footer">
+                        <span class="metric-subtext" id="averageExpenseSubtitle">Per transaction</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Charts Analytics Section -->
+            <section class="charts-grid" aria-label="Expense Analytics Visualizations">
+                <!-- Category Breakdown Chart Card -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <div class="chart-title-wrap">
+                            <i data-lucide="pie-chart" class="chart-header-icon"></i>
+                            <h3 class="chart-title">Spending by Category</h3>
+                        </div>
+                        <span class="chart-badge" id="categoryCountBadge">0 Categories</span>
+                    </div>
+                    <div class="chart-body">
+                        <div class="chart-canvas-container">
+                            <canvas id="categoryChart"></canvas>
+                        </div>
+                        <div class="chart-empty-fallback hidden" id="categoryChartEmpty">
+                            <i data-lucide="bar-chart-2"></i>
+                            <p>No category data available</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Monthly Spending Trend Chart Card -->
+                <div class="chart-card">
+                    <div class="chart-card-header">
+                        <div class="chart-title-wrap">
+                            <i data-lucide="line-chart" class="chart-header-icon"></i>
+                            <h3 class="chart-title">Monthly Spending Trend</h3>
+                        </div>
+                        <span class="chart-badge" id="monthlyHistoryBadge">History</span>
+                    </div>
+                    <div class="chart-body">
+                        <div class="chart-canvas-container">
+                            <canvas id="monthlyChart"></canvas>
+                        </div>
+                        <div class="chart-empty-fallback hidden" id="monthlyChartEmpty">
+                            <i data-lucide="calendar"></i>
+                            <p>No monthly trends available</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Filter & Search Toolbar -->
+            <section class="controls-section" aria-label="Search and Filter Controls">
+                <div class="controls-card">
+                    <div class="search-input-wrapper">
+                        <i data-lucide="search" class="search-icon"></i>
+                        <input 
+                            type="text" 
+                            id="searchInput" 
+                            placeholder="Search expenses by title or notes..."
+                            aria-label="Search expenses"
+                            autocomplete="off"
+                        >
+                        <button id="clearSearchBtn" class="clear-input-btn hidden" title="Clear search">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+
+                    <div class="filter-controls-group">
+                        <!-- Category Filter Dropdown -->
+                        <div class="custom-select-wrap">
+                            <i data-lucide="tag" class="select-icon"></i>
+                            <select id="categoryFilter" aria-label="Filter by Category">
+                                <option value="All">All Categories</option>
+                            </select>
+                        </div>
+
+                        <!-- Sort Dropdown -->
+                        <div class="custom-select-wrap">
+                            <i data-lucide="arrow-up-down" class="select-icon"></i>
+                            <select id="sortFilter" aria-label="Sort Expenses">
+                                <option value="date-desc">Newest First</option>
+                                <option value="date-asc">Oldest First</option>
+                                <option value="amount-desc">Highest Amount</option>
+                                <option value="amount-asc">Lowest Amount</option>
+                                <option value="title-asc">Title (A - Z)</option>
+                            </select>
+                        </div>
+
+                        <!-- Reset Filters Button -->
+                        <button id="resetFiltersBtn" class="btn-ghost" title="Reset all search and filters">
+                            <i data-lucide="rotate-ccw"></i>
+                            <span>Reset</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Expenses List / Table Section -->
+            <section class="expenses-section" aria-label="Expense Transactions List">
+                <div class="table-card">
+                    <!-- Table Header Controls / Summary -->
+                    <div class="table-header-row">
+                        <div class="table-title-wrap">
+                            <h3 class="table-title">Transactions</h3>
+                            <span class="table-count-pill" id="transactionsFilteredCount">0 items</span>
+                        </div>
+                        <div class="table-summary-stat">
+                            <span class="summary-stat-label">Filtered Total:</span>
+                            <span class="summary-stat-value" id="filteredTotalAmount">$0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="tableLoadingState" class="loading-state hidden">
+                        <div class="spinner"></div>
+                        <p>Loading your expenses...</p>
+                    </div>
+
+                    <!-- Empty State (No expenses at all) -->
+                    <div id="tableEmptyState" class="empty-state hidden">
+                        <div class="empty-icon-wrap">
+                            <i data-lucide="inbox"></i>
+                        </div>
+                        <h4>No Expenses Recorded Yet</h4>
+                        <p>Start tracking your spending by adding your first transaction.</p>
+                        <button class="btn-primary empty-cta-btn" onclick="openAddModal()">
+                            <i data-lucide="plus"></i>
+                            <span>Add Your First Expense</span>
+                        </button>
+                    </div>
+
+                    <!-- No Results State (Search/Filter found 0) -->
+                    <div id="tableNoResultsState" class="empty-state hidden">
+                        <div class="empty-icon-wrap">
+                            <i data-lucide="filter-x"></i>
+                        </div>
+                        <h4>No Matching Expenses Found</h4>
+                        <p>Try adjusting your search keywords or category filters.</p>
+                        <button id="clearFiltersFromEmptyBtn" class="btn-secondary empty-cta-btn">
+                            <i data-lucide="rotate-ccw"></i>
+                            <span>Clear All Filters</span>
+                        </button>
+                    </div>
+
+                    <!-- Responsive Table Container -->
+                    <div class="table-responsive" id="tableContainer">
+                        <table class="expenses-table" id="expensesTable">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="th-date">Date</th>
+                                    <th scope="col" class="th-title">Title & Details</th>
+                                    <th scope="col" class="th-category">Category</th>
+                                    <th scope="col" class="th-amount text-right">Amount</th>
+                                    <th scope="col" class="th-actions text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="expensesTableBody">
+                                <!-- Dynamic rows inserted by script.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>SpendWise &bull; Full-Stack Personal Expense Tracker &bull; Powered by Python Flask & SQLite</p>
+        </footer>
+    </div>
+
+    <!-- ADD EXPENSE MODAL -->
+    <div class="modal-overlay hidden" id="addExpenseModal" role="dialog" aria-modal="true" aria-labelledby="addModalTitle">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div class="modal-icon-badge icon-primary">
+                        <i data-lucide="plus-circle"></i>
+                    </div>
+                    <h3 id="addModalTitle" class="modal-title">Add New Expense</h3>
+                </div>
+                <button class="modal-close-btn" onclick="closeAddModal()" aria-label="Close modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <form id="addExpenseForm" novalidate>
+                <div class="modal-body">
+                    <!-- Title Input -->
+                    <div class="form-group">
+                        <label for="addTitle" class="form-label">
+                            Expense Title <span class="required">*</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <i data-lucide="file-text" class="input-icon"></i>
+                            <input 
+                                type="text" 
+                                id="addTitle" 
+                                name="title" 
+                                class="form-input" 
+                                placeholder="e.g., Grocery at Trader Joe's"
+                                required 
+                                maxlength="150"
+                            >
+                        </div>
+                        <span class="field-error" id="addTitleError"></span>
+                    </div>
+
+                    <!-- Amount & Category Row -->
+                    <div class="form-row">
+                        <!-- Amount -->
+                        <div class="form-group flex-1">
+                            <label for="addAmount" class="form-label">
+                                Amount ($) <span class="required">*</span>
+                            </label>
+                            <div class="input-with-icon">
+                                <span class="input-prefix">$</span>
+                                <input 
+                                    type="number" 
+                                    id="addAmount" 
+                                    name="amount" 
+                                    class="form-input has-prefix" 
+                                    placeholder="0.00" 
+                                    step="0.01" 
+                                    min="0.01" 
+                                    required
+                                >
+                            </div>
+                            <span class="field-error" id="addAmountError"></span>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="form-group flex-1">
+                            <label for="addCategory" class="form-label">
+                                Category <span class="required">*</span>
+                            </label>
+                            <div class="input-with-icon">
+                                <i data-lucide="folder" class="input-icon"></i>
+                                <select id="addCategory" name="category" class="form-input" required>
+                                    <option value="" disabled selected>Select category</option>
+                                </select>
+                            </div>
+                            <span class="field-error" id="addCategoryError"></span>
+                        </div>
+                    </div>
+
+                    <!-- Date Row with Quick Today Button -->
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label for="addDate" class="form-label">
+                                Date <span class="required">*</span>
+                            </label>
+                            <button type="button" class="btn-text-action" id="setTodayBtn">Set to Today</button>
+                        </div>
+                        <div class="input-with-icon">
+                            <i data-lucide="calendar" class="input-icon"></i>
+                            <input 
+                                type="date" 
+                                id="addDate" 
+                                name="date" 
+                                class="form-input" 
+                                required
+                            >
+                        </div>
+                        <span class="field-error" id="addDateError"></span>
+                    </div>
+
+                    <!-- Notes Input -->
+                    <div class="form-group">
+                        <label for="addNotes" class="form-label">
+                            Notes / Memo <span class="optional">(Optional)</span>
+                        </label>
+                        <textarea 
+                            id="addNotes" 
+                            name="notes" 
+                            class="form-textarea" 
+                            rows="3" 
+                            placeholder="Add payment method, store name, or description..."
+                            maxlength="1000"
+                        ></textarea>
+                        <span class="field-error" id="addNotesError"></span>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeAddModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" id="saveAddExpenseBtn">
+                        <i data-lucide="check" class="btn-icon-svg"></i>
+                        <span>Save Expense</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- EDIT EXPENSE MODAL -->
+    <div class="modal-overlay hidden" id="editExpenseModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div class="modal-icon-badge icon-warning">
+                        <i data-lucide="edit-3"></i>
+                    </div>
+                    <h3 id="editModalTitle" class="modal-title">Edit Expense</h3>
+                </div>
+                <button class="modal-close-btn" onclick="closeEditModal()" aria-label="Close modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <form id="editExpenseForm" novalidate>
+                <input type="hidden" id="editExpenseId" name="id">
+
+                <div class="modal-body">
+                    <!-- Title Input -->
+                    <div class="form-group">
+                        <label for="editTitle" class="form-label">
+                            Expense Title <span class="required">*</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <i data-lucide="file-text" class="input-icon"></i>
+                            <input 
+                                type="text" 
+                                id="editTitle" 
+                                name="title" 
+                                class="form-input" 
+                                required 
+                                maxlength="150"
+                            >
+                        </div>
+                        <span class="field-error" id="editTitleError"></span>
+                    </div>
+
+                    <!-- Amount & Category Row -->
+                    <div class="form-row">
+                        <!-- Amount -->
+                        <div class="form-group flex-1">
+                            <label for="editAmount" class="form-label">
+                                Amount ($) <span class="required">*</span>
+                            </label>
+                            <div class="input-with-icon">
+                                <span class="input-prefix">$</span>
+                                <input 
+                                    type="number" 
+                                    id="editAmount" 
+                                    name="amount" 
+                                    class="form-input has-prefix" 
+                                    step="0.01" 
+                                    min="0.01" 
+                                    required
+                                >
+                            </div>
+                            <span class="field-error" id="editAmountError"></span>
+                        </div>
+
+                        <!-- Category -->
+                        <div class="form-group flex-1">
+                            <label for="editCategory" class="form-label">
+                                Category <span class="required">*</span>
+                            </label>
+                            <div class="input-with-icon">
+                                <i data-lucide="folder" class="input-icon"></i>
+                                <select id="editCategory" name="category" class="form-input" required>
+                                </select>
+                            </div>
+                            <span class="field-error" id="editCategoryError"></span>
+                        </div>
+                    </div>
+
+                    <!-- Date Row -->
+                    <div class="form-group">
+                        <label for="editDate" class="form-label">
+                            Date <span class="required">*</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <i data-lucide="calendar" class="input-icon"></i>
+                            <input 
+                                type="date" 
+                                id="editDate" 
+                                name="date" 
+                                class="form-input" 
+                                required
+                            >
+                        </div>
+                        <span class="field-error" id="editDateError"></span>
+                    </div>
+
+                    <!-- Notes Input -->
+                    <div class="form-group">
+                        <label for="editNotes" class="form-label">
+                            Notes / Memo <span class="optional">(Optional)</span>
+                        </label>
+                        <textarea 
+                            id="editNotes" 
+                            name="notes" 
+                            class="form-textarea" 
+                            rows="3" 
+                            maxlength="1000"
+                        ></textarea>
+                        <span class="field-error" id="editNotesError"></span>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" id="saveEditExpenseBtn">
+                        <i data-lucide="check" class="btn-icon-svg"></i>
+                        <span>Update Expense</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- DELETE CONFIRMATION MODAL -->
+    <div class="modal-overlay hidden" id="deleteConfirmModal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle">
+        <div class="modal-dialog modal-dialog-sm">
+            <div class="modal-header">
+                <div class="modal-title-wrap">
+                    <div class="modal-icon-badge icon-danger">
+                        <i data-lucide="alert-triangle"></i>
+                    </div>
+                    <h3 id="deleteModalTitle" class="modal-title">Delete Expense</h3>
+                </div>
+                <button class="modal-close-btn" onclick="closeDeleteModal()" aria-label="Close modal">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            
+            <div class="modal-body">
+                <p class="delete-warning-text">
+                    Are you sure you want to permanently delete this expense? This action cannot be undone.
+                </p>
+                
+                <div class="delete-preview-card" id="deleteExpensePreview">
+                    <div class="delete-preview-title" id="deletePreviewTitle">Expense Title</div>
+                    <div class="delete-preview-details">
+                        <span id="deletePreviewCategory" class="badge">Category</span>
+                        <span id="deletePreviewDate" class="text-muted">Date</span>
+                        <span id="deletePreviewAmount" class="delete-preview-amount">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeDeleteModal()">Keep Expense</button>
+                <button type="button" class="btn-danger" id="confirmDeleteBtn">
+                    <i data-lucide="trash-2" class="btn-icon-svg"></i>
+                    <span>Yes, Delete</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATIONS CONTAINER -->
+    <div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+
+    <!-- App JavaScript -->
+    <script src="/static/script.js"></script>
+</body>
+</html>
