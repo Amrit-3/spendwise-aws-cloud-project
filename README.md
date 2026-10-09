@@ -83,7 +83,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Ensure `requirements.txt` includes Flask and `psycopg2-binary`.
+The required Python dependencies, including Flask, `psycopg2-binary`, and Gunicorn, are listed in `requirements.txt` and installed with `pip install -r requirements.txt`.
 
 ### 4. Start PostgreSQL
 
