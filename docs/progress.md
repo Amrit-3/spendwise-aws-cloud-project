@@ -1,46 +1,82 @@
-# Project Progress Log — Personal Expense Tracker
+# Project Progress Log — SpendWise
 
-## Day 1 — October 8, 2026
+## Project Goal
 
-### Goal
-Build a Personal Expense Tracker and learn how to deploy it using AWS cloud services.
+Build a Personal Expense Tracker using Flask and PostgreSQL, deploy it on AWS, and gain hands-on experience with cloud infrastructure and Linux server administration.
 
-### Work Completed
+## Work Completed
 
-#### 1. AWS Network Foundation
-- Created `ExpenseTracker-VPC` with CIDR `10.0.0.0/16`.
-- Created two public subnets and two private subnets.
-- Created and associated public and private route tables.
-- Created and attached `ExpenseTracker-IGW`.
-- Configured security groups for the Application Load Balancer, EC2, and RDS.
-- Launched `ExpenseTracker-EC2-1` in a private subnet.
+### 1. Local Application Setup
 
-#### 2. Local Application Setup
-- Cloned the project repository from GitHub.
 - Set up a Python virtual environment.
-- Installed the application's dependencies.
+- Installed the application's Python dependencies.
 - Ran the Flask application locally.
+- Tested expense management features and API endpoints.
 
-#### 3. PostgreSQL Migration
-- Installed PostgreSQL locally.
-- Created the `expense_tracker` database.
-- Installed the `psycopg2-binary` Python driver.
+### 2. PostgreSQL Database Migration
+
 - Migrated the application's database connection from SQLite to PostgreSQL.
-- Fixed SQL compatibility issues and debugging errors.
-- Tested expense creation, expense retrieval, categories, and statistics.
+- Installed and configured the PostgreSQL Python driver.
+- Created the `expense_tracker` database.
+- Tested expense creation, retrieval, updates, deletion, and statistics.
+- Created a PostgreSQL backup of the AWS database.
 
-### Final Result
-The Flask application successfully saves and retrieves expenses using local PostgreSQL. The relevant API requests returned successful HTTP status codes, including `201 Created` when adding an expense.
+### 3. AWS Infrastructure
 
-### AI Assistance
-ChatGPT was used as a learning and debugging assistant during the local PostgreSQL setup and SQLite-to-PostgreSQL migration. I executed the commands, applied the changes, tested the application, and used the resulting errors to troubleshoot the integration.
+- Deployed the application on an Amazon EC2 instance running Ubuntu Server 24.04 LTS.
+- Used the AWS Mumbai region (`ap-south-1`).
+- Configured a VPC, public subnet, Internet Gateway, route table, and security group.
+- Restricted inbound SSH access to the configured public IP address.
 
-### Next Steps
-- Improve GitHub documentation.
-- Prepare the application for AWS RDS PostgreSQL.
-- Connect the application to RDS.
-- Continue building and testing the AWS architecture.
-- Document each step and its purpose.
+### 4. Application Deployment
 
-### AWS Cost-Safety Notes
-Stop EC2 instances when they are not needed. Check for any resources that may incur charges before ending a session. Preserve the project infrastructure unless a resource is intentionally being removed.
+- Configured Gunicorn to run the Flask application as a systemd service.
+- Configured PostgreSQL to listen on the local interface.
+- Used an SSH tunnel to access the application securely from the Mac.
+- Configured and tested Nginx for local access. The active SSH tunnel connects directly to Gunicorn.
+
+## Current Architecture
+
+- **Compute:** Amazon EC2
+- **Operating system:** Ubuntu Server 24.04 LTS
+- **Backend:** Python and Flask
+- **Application server:** Gunicorn
+- **Database:** PostgreSQL on the same EC2 instance
+- **Access method:** SSH tunnel
+
+Amazon RDS, Amazon S3, an Application Load Balancer, Auto Scaling, and CloudWatch monitoring were not implemented in this project.
+
+## Testing Status
+
+The application was manually tested during deployment, including expense operations and database migration. A PostgreSQL backup was created and its contents were inspected.
+
+The existing automated test suite needs updating to use an isolated PostgreSQL test database. It has not yet been fully validated against that setup.
+
+## Security and Cost Considerations
+
+- Keep SSH access restricted to trusted IP addresses.
+- Keep database access limited to the local interface.
+- Never commit private keys, passwords, or database backups to GitHub.
+- Review AWS resources and potential charges before ending the deployment.
+- Preserve and verify the database backup before removing any resources.
+
+## Lessons Learned
+
+- Deploying a Flask application on an Ubuntu EC2 instance.
+- Configuring basic AWS networking and security groups.
+- Connecting Flask to PostgreSQL.
+- Running an application with Gunicorn and systemd.
+- Accessing a server through an SSH tunnel.
+- Troubleshooting database integration and creating PostgreSQL backups.
+
+## Next Steps
+
+- Verify the backup can be restored safely.
+- Update automated tests to use an isolated PostgreSQL test database.
+- Review the AWS deployment and document any remaining limitations.
+- Shut down unneeded AWS resources only after backup and cost checks.
+- Explore RDS, S3, IAM roles, and CloudWatch in a future project.
+
+## AI Assistance
+
+ChatGPT was used as a learning and debugging assistant. Commands and configuration changes were applied and tested during the project, with errors used to guide troubleshooting and improve understanding.
