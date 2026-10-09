@@ -1,21 +1,24 @@
-﻿__pycache__/
-*.pyc
-.venv/
-venv/
-database.db
-# Python
+﻿# Python
 __pycache__/
-*.pyc
+*.py[cod]
 .venv/
 venv/
 
-# Local databases
+# Local databases and backups
 database.db
+*.dump
+*.backup
+*.sql
 
 # Environment variables and secrets
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+
+# Logs
+*.log
 
 # macOS
 .DS_Store
@@ -23,3 +26,4 @@ database.db
 # Test and coverage artifacts
 .pytest_cache/
 .coverage
+htmlcov/
