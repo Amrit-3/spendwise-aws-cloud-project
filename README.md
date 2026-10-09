@@ -1,219 +1,177 @@
 # SpendWise — Personal Expense Tracker
 
-A modern, fast, full-stack Personal Expense Tracker web application built with **Python Flask**, **SQLite**, and **Vanilla HTML5, CSS3, and JavaScript**.
+A full-stack expense tracking web application built with Flask, PostgreSQL, HTML, CSS, and JavaScript. This project is also a hands-on learning journey into AWS cloud infrastructure and deployment.
 
----
+> **Project status:** Runs locally with PostgreSQL. AWS infrastructure setup is in progress.
 
-## 🌟 Key Features
+## Features
 
-- **Full CRUD Management**: Add, view, edit, and delete expense transactions with instant UI feedback.
-- **Analytics & Visualizations**:
-  - Interactive **Spending by Category** Doughnut Chart (powered by Chart.js).
-  - Dynamic **Monthly Spending Trend** Bar Chart.
-  - Real-time KPI summary metric cards (Total Spending, Transaction Count, Highest Expense, Average Expense).
-- **Search & Multi-Filter Engine**:
-  - Live debounce search by title or notes memo.
-  - Category filter dropdown.
-  - Multi-column sorting (Newest, Oldest, Highest Amount, Lowest Amount, Title A-Z).
-- **Modern Glassmorphic UI/UX**:
-  - Dark Mode (default) & Light Mode with instant toggle and local storage persistence.
-  - Accessible modal dialogs for Adding, Editing, and Safe Delete confirmation.
-  - Toast notifications system with auto-dismiss progress bars.
-  - Loading skeleton states and clean empty-state fallback illustrations.
-- **Data Export**: One-click **Export to CSV** for spreadsheets and accounting backups.
-- **Zero-Config Database**:
-  - Automatically provisions SQLite database and tables on first startup.
-  - Auto-seeds 5 realistic sample expenses if database is empty.
-  - Preserves all your data across server restarts without overwriting.
-- **Lightweight & Self-Contained**:
-  - No Node.js, npm, Docker, or external database server required.
-  - Runs natively on Windows CMD using standard Python and Flask.
+- **Expense management:** Create, view, update, and delete expenses.
+- **Spending analytics:** Category breakdowns, monthly trends, and summary statistics.
+- **Search and filtering:** Search expenses, filter by category, and sort transactions.
+- **Responsive interface:** Dark and light themes, modals, and notifications.
+- **Data export:** Export expenses to CSV.
+- **REST API:** Flask endpoints for expense management and statistics.
 
----
+## Technology Stack
 
-## 🛠️ Tech Stack
+| Component | Technology |
+|---|---|
+| Backend | Python, Flask |
+| Database | PostgreSQL 16 |
+| Database driver | psycopg2-binary |
+| Frontend | HTML5, CSS3, JavaScript |
+| Charts | Chart.js |
+| Cloud platform | Amazon Web Services (AWS) — in progress |
+| Version control | Git and GitHub |
 
-- **Backend**: Python 3.8+ & Flask REST API
-- **Database**: SQLite 3 (Standard Library)
-- **Frontend**: HTML5, Vanilla CSS3 (Custom Glassmorphism Design System), Vanilla JavaScript (ES6+)
-- **Icons & Visuals**: Lucide Icons & Chart.js (via CDN)
-
----
-
-## 📂 Project Structure
+## Project Structure
 
 ```text
-expense_tracker/
-├── app.py                  # Flask backend server, REST API routes, SQLite manager
-├── requirements.txt        # Python dependency manifest (Flask)
-├── README.md               # Project documentation and user guide
-├── database.db             # SQLite database file (created automatically on startup)
+personal-expense-tracker/
+├── app.py
+├── requirements.txt
+├── README.md
+├── test_backend.py
+├── verify_live_app.py
+├── docs/
+│   └── progress.md
 ├── templates/
-│   └── index.html          # Semantic HTML5 dashboard template and modals
+│   └── index.html
 └── static/
-    ├── style.css           # Glassmorphism, themes (dark/light), responsive CSS
-    └── script.js           # Vanilla JS controller, Chart.js integrations, API fetchers
+    ├── style.css
+    └── script.js
 ```
 
----
-
-## 🚀 Quick Start (Windows CMD)
+## Run Locally on macOS
 
 ### 1. Prerequisites
-Make sure you have **Python 3.8+** installed and added to your `PATH`. You can verify by opening CMD and typing:
-```cmd
-python --version
+
+Install Python 3 and PostgreSQL 16.
+
+Verify the installations:
+
+```bash
+python3 --version
+psql --version
 ```
 
-### 2. Navigate to Project Directory
-From `C:\Users\mantr`:
-```cmd
-cd ant1\expense_tracker
-```
-Or use the full absolute path:
-```cmd
-cd C:\Users\mantr\ant1\expense_tracker
+### 2. Clone the repository
+
+```bash
+git clone https://github.com/Mantrapandya/personal-expense-tracker.git
+cd personal-expense-tracker
 ```
 
-### 3. Install Dependencies
-```cmd
+### 3. Create and activate a virtual environment
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+
+### 4. Install dependencies
+
+```bash
 pip install -r requirements.txt
+pip install psycopg2-binary
 ```
 
-### 4. Run the Application
-```cmd
-python app.py
+### 5. Start PostgreSQL
+
+If PostgreSQL 16 was installed using Homebrew:
+
+```bash
+brew services start postgresql@16
 ```
 
-### 5. Open in Your Web Browser
-Open your browser and navigate to:
-```text
-http://127.0.0.1:5000
+### 6. Create the database
+
+```bash
+createdb expense_tracker
 ```
 
----
+If the database already exists, do not create it again.
 
-## 📡 REST API Documentation
+### 7. Run the application
 
-### Base URL
-`http://127.0.0.1:5000/api`
+```bash
+python3 app.py
+```
 
-### Endpoints Overview
+Open the local URL printed in your terminal. It may be `http://127.0.0.1:5000` or another port if port 5000 is already occupied.
 
-| Method | Endpoint | Description |
+## Database
+
+The application currently uses a local PostgreSQL database named `expense_tracker`.
+
+The application database connection is configured in `app.py`. Before deploying to AWS, database connection details should be moved into environment variables rather than hard-coded in source code.
+
+## REST API
+
+| Method | Endpoint | Purpose |
 |---|---|---|
-| `GET` | `/api/health` | Server health check and timestamp |
-| `GET` | `/api/categories` | Get list of supported expense categories |
-| `GET` | `/api/expenses` | Get all expenses (supports search, category, sort filters) |
-| `POST` | `/api/expenses` | Create a new expense |
-| `GET` | `/api/expenses/<id>` | Retrieve a single expense by ID |
-| `PUT` / `PATCH` | `/api/expenses/<id>` | Update an existing expense |
-| `DELETE` | `/api/expenses/<id>` | Delete an expense by ID |
-| `GET` | `/api/expenses/stats` | Aggregated metrics, category breakdown & monthly trends |
+| GET | `/api/health` | Health check |
+| GET | `/api/categories` | List expense categories |
+| GET | `/api/expenses` | List and filter expenses |
+| POST | `/api/expenses` | Create an expense |
+| GET | `/api/expenses/<id>` | Retrieve an expense |
+| PUT/PATCH | `/api/expenses/<id>` | Update an expense |
+| DELETE | `/api/expenses/<id>` | Delete an expense |
+| GET | `/api/expenses/stats` | Retrieve spending statistics |
 
----
+## AWS Learning Roadmap
 
-### Example API Requests
+The planned cloud architecture is:
 
-#### 1. Get All Expenses (with optional filters)
-```bash
-curl -X GET "http://127.0.0.1:5000/api/expenses?category=Food%20%26%20Dining&sort_by=amount&order=desc"
+```text
+Internet
+   |
+Application Load Balancer
+   |
+EC2 instances in private subnets
+   |
+Amazon RDS for PostgreSQL
+
+EC2 --------> Amazon S3
+Services ----> Amazon CloudWatch
 ```
 
-#### 2. Create a New Expense
-```bash
-curl -X POST "http://127.0.0.1:5000/api/expenses" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "title": "Starbucks Caramel Macchiato",
-       "amount": 6.75,
-       "category": "Food & Dining",
-       "date": "2026-09-18",
-       "notes": "Afternoon coffee break"
-     }'
-```
+Planned AWS components:
 
-**Response (201 Created):**
-```json
-{
-  "status": "success",
-  "message": "Expense created successfully.",
-  "expense": {
-    "id": 6,
-    "title": "Starbucks Caramel Macchiato",
-    "amount": 6.75,
-    "category": "Food & Dining",
-    "date": "2026-09-18",
-    "notes": "Afternoon coffee break",
-    "created_at": "2026-09-18 10:30:00"
-  }
-}
-```
+- Amazon VPC, public and private subnets, and route tables
+- Internet Gateway and security groups
+- Amazon EC2
+- Amazon RDS for PostgreSQL
+- Application Load Balancer
+- Auto Scaling
+- IAM roles and Amazon S3
+- Amazon CloudWatch
 
-#### 3. Update an Expense
-```bash
-curl -X PUT "http://127.0.0.1:5000/api/expenses/6" \
-     -H "Content-Type: application/json" \
-     -d '{
-       "title": "Starbucks Coffee & Pastry",
-       "amount": 11.50,
-       "category": "Food & Dining",
-       "date": "2026-09-18",
-       "notes": "Breakfast combo"
-     }'
-```
+**Note:** This is the target architecture. Not all components have been deployed or connected yet.
 
-#### 4. Delete an Expense
-```bash
-curl -X DELETE "http://127.0.0.1:5000/api/expenses/6"
-```
+## Learning and Development Log
 
-#### 5. Get Aggregate Statistics
-```bash
-curl -X GET "http://127.0.0.1:5000/api/expenses/stats"
-```
+Development progress is documented in [`docs/progress.md`](docs/progress.md).
 
----
+ChatGPT was used as a learning and debugging assistant during the local PostgreSQL setup and database migration.
 
-## ⚙️ Configuration & Port Customization
+## Security Notes
 
-### Changing the Port
-By default, the server runs on port `5000`. You can change the port in two ways:
+- Never commit passwords, AWS access keys, private keys, or database credentials.
+- Use environment variables or an appropriate secrets-management solution for credentials.
+- Restrict database access to trusted application resources.
+- Review AWS resource usage and charges regularly.
 
-1. **Via Windows CMD Environment Variable:**
-   ```cmd
-   set PORT=8080
-   python app.py
-   ```
-2. **Automatic Port Fallback:**
-   If port `5000` is already occupied by another application, `app.py` automatically detects this and binds to the next available port (e.g. `5001`, `5002`) with a clear notice in the terminal.
+## Future Improvements
 
----
+- Configure Amazon RDS PostgreSQL.
+- Connect the Flask application to RDS securely.
+- Deploy the application on EC2 behind an Application Load Balancer.
+- Configure Auto Scaling and CloudWatch monitoring.
+- Integrate S3 using an IAM role.
+- Add deployment documentation and architecture diagrams.
 
-## 🔧 Troubleshooting
+## License
 
-### 1. `pip` or `python` is not recognized
-- Ensure Python is installed from [python.org](https://www.python.org).
-- Check the box **"Add Python to PATH"** during installation.
-- Restart CMD.
-
-### 2. Port Conflict
-If port `5000` is in use, the application will automatically select an available port. Alternatively, specify a custom port:
-```cmd
-set PORT=5050
-python app.py
-```
-
-### 3. Reset Database to Fresh State
-To start with a clean database and reset sample data:
-1. Stop the application (`Ctrl + C`).
-2. Delete the `database.db` file:
-   ```cmd
-   del database.db
-   ```
-3. Run `python app.py` again. The database and 5 realistic sample expenses will be automatically recreated.
-
----
-
-## 📜 License
-Open-source under the MIT License.
+The original project README states that this project is released under the MIT License. Ensure a corresponding `LICENSE` file exists in the repository before distributing it under that license.

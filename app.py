@@ -1,5 +1,6 @@
 import os
-import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 import socket
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
@@ -31,11 +32,17 @@ DEFAULT_CATEGORIES = [
 
 def get_db_connection():
     """Create a database connection with dictionary-like row factory and ensure schema exists."""
-    conn = sqlite3.connect(DATABASE_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("""
+    conn = psycopg2.connect(
+        dbname="expense_tracker",
+        user="amrit",
+        host="localhost",
+        port="5432",
+        cursor_factory=RealDictCursor
+    )
+    cursor = conn.cursor()
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             amount REAL NOT NULL,
             category TEXT NOT NULL,
@@ -54,7 +61,7 @@ def init_db():
     
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS expenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             title TEXT NOT NULL,
             amount REAL NOT NULL,
             category TEXT NOT NULL,
@@ -111,7 +118,7 @@ def init_db():
         
         cursor.executemany("""
             INSERT INTO expenses (title, amount, category, date, notes)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
         """, sample_expenses)
         conn.commit()
         print("[DATABASE] Seeded 5 initial sample expenses.")
@@ -233,20 +240,20 @@ def get_expenses():
     params = []
 
     if search:
-        query += " AND (title LIKE ? OR notes LIKE ?)"
+        query += " AND (title LIKE %s OR notes LIKE %s)"
         search_pattern = f"%{search}%"
         params.extend([search_pattern, search_pattern])
 
     if category and category.lower() != "all":
-        query += " AND category = ?"
+        query += " AND category = %s"
         params.append(category)
 
     if start_date:
-        query += " AND date >= ?"
+        query += " AND date >= %s"
         params.append(start_date)
 
     if end_date:
-        query += " AND date <= ?"
+        query += " AND date <= %s"
         params.append(end_date)
 
     # Order query
@@ -296,12 +303,13 @@ def add_expense():
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO expenses (title, amount, category, date, notes)
-        VALUES (?, ?, ?, ?, ?)
+        VALUES (%s, %s, %s, %s, %s)
+        RETURNING id
     """, (title, amount, category, date, notes))
     conn.commit()
-    new_id = cursor.lastrowid
+    new_id = cursor.fetchone()["id"]
 
-    cursor.execute("SELECT * FROM expenses WHERE id = ?", (new_id,))
+    cursor.execute("SELECT * FROM expenses WHERE id = %s", (new_id,))
     new_expense = dict(cursor.fetchone())
     conn.close()
 
@@ -316,7 +324,7 @@ def get_expense(expense_id):
     """Retrieve a single expense by ID."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
+    cursor.execute("SELECT * FROM expenses WHERE id = %s", (expense_id,))
     row = cursor.fetchone()
     conn.close()
 
@@ -343,7 +351,7 @@ def update_expense(expense_id):
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
+    cursor.execute("SELECT * FROM expenses WHERE id = %s", (expense_id,))
     existing = cursor.fetchone()
 
     if not existing:
@@ -372,12 +380,12 @@ def update_expense(expense_id):
 
     cursor.execute("""
         UPDATE expenses
-        SET title = ?, amount = ?, category = ?, date = ?, notes = ?
-        WHERE id = ?
+        SET title = %s, amount = %s, category = %s, date = %s, notes = %s
+        WHERE id = %s
     """, (title, amount, category, date, notes, expense_id))
     conn.commit()
 
-    cursor.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
+    cursor.execute("SELECT * FROM expenses WHERE id = %s", (expense_id,))
     updated_expense = dict(cursor.fetchone())
     conn.close()
 
@@ -392,7 +400,7 @@ def delete_expense(expense_id):
     """Delete an expense by ID."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM expenses WHERE id = ?", (expense_id,))
+    cursor.execute("SELECT * FROM expenses WHERE id = %s", (expense_id,))
     existing = cursor.fetchone()
 
     if not existing:
@@ -402,7 +410,7 @@ def delete_expense(expense_id):
             "message": f"Expense with ID {expense_id} was not found."
         }), 404
 
-    cursor.execute("DELETE FROM expenses WHERE id = ?", (expense_id,))
+    cursor.execute("DELETE FROM expenses WHERE id = %s", (expense_id,))
     conn.commit()
     conn.close()
 
@@ -454,7 +462,7 @@ def get_stats():
     cursor.execute("""
         SELECT 
             category,
-            ROUND(SUM(amount), 2) as total,
+            ROUND(SUM(amount)::numeric, 2) as total,
             COUNT(*) as count
         FROM expenses
         GROUP BY category
@@ -464,7 +472,7 @@ def get_stats():
     category_spending = []
     for row in category_rows:
         cat_total = row["total"]
-        pct = round((cat_total / total_spending * 100), 1) if total_spending > 0 else 0
+        pct = round((float(cat_total) / float(total_spending) * 100), 1) if total_spending > 0 else 0
         category_spending.append({
             "category": row["category"],
             "total": cat_total,
@@ -476,7 +484,7 @@ def get_stats():
     cursor.execute("""
         SELECT 
             SUBSTR(date, 1, 7) as month,
-            ROUND(SUM(amount), 2) as total,
+            ROUND(SUM(amount)::numeric, 2) AS total,
             COUNT(*) as count
         FROM expenses
         GROUP BY SUBSTR(date, 1, 7)
