@@ -282,7 +282,7 @@
 
         <!-- Footer -->
         <footer class="app-footer">
-            <p>SpendWise &bull; Full-Stack Personal Expense Tracker &bull; Powered by Python Flask & SQLite</p>
+            <p>SpendWise &bull; Full-Stack Personal Expense Tracker &bull; Flask &amp; PostgreSQL on AWS</p>
         </footer>
     </div>
 
@@ -396,6 +396,23 @@
                             maxlength="1000"
                         ></textarea>
                         <span class="field-error" id="addNotesError"></span>
+                    </div>
+                                        <!-- Receipt Upload (Optional) -->
+                    <div class="form-group">
+                        <label for="addReceipt" class="form-label">
+                            Receipt <span class="optional">(Optional · JPG, PNG or PDF, max 5 MB)</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <i data-lucide="paperclip" class="input-icon"></i>
+                            <input
+                                type="file"
+                                id="addReceipt"
+                                name="receipt"
+                                class="form-input"
+                                accept="image/jpeg,image/png,application/pdf"
+                            >
+                        </div>
+                        <span class="field-error" id="addReceiptError"></span>
                     </div>
                 </div>
 
@@ -515,6 +532,24 @@
                             maxlength="1000"
                         ></textarea>
                         <span class="field-error" id="editNotesError"></span>
+                    </div>
+                                        <!-- Receipt Upload (Optional) -->
+                    <div class="form-group">
+                        <label for="editReceipt" class="form-label">
+                            Receipt <span class="optional">(Optional · JPG, PNG or PDF, max 5 MB)</span>
+                        </label>
+                        <div class="input-with-icon">
+                            <i data-lucide="paperclip" class="input-icon"></i>
+                            <input
+                                type="file"
+                                id="editReceipt"
+                                name="receipt"
+                                class="form-input"
+                                accept="image/jpeg,image/png,application/pdf"
+                            >
+                        </div>
+                        <span class="text-muted" id="editReceiptHint" style="display:block;margin-top:6px;font-size:0.8rem;"></span>
+                        <span class="field-error" id="editReceiptError"></span>
                     </div>
                 </div>
 
