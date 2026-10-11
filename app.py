@@ -4,6 +4,21 @@ from psycopg2.extras import RealDictCursor
 import socket
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
+import uuid
+import boto3
+from botocore.config import Config
+
+S3_BUCKET = os.environ.get("S3_BUCKET")
+S3_REGION = os.environ.get("AWS_REGION", "ap-south-1")
+ALLOWED_RECEIPT_TYPES = {"image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf"}
+MAX_RECEIPT_BYTES = 5 * 1024 * 1024  # 5 MB
+
+_s3 = None
+def get_s3():
+    global _s3
+    if _s3 is None:
+        _s3 = boto3.client("s3", region_name=S3_REGION, config=Config(signature_version="s3v4"))
+    return _s3
 
 # Configuration
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -14,6 +29,7 @@ app = Flask(
     template_folder=os.path.join(BASE_DIR, "templates"),
     static_folder=os.path.join(BASE_DIR, "static")
 )
+app.config["MAX_CONTENT_LENGTH"] = MAX_RECEIPT_BYTES + 512 * 1024
 
 # Standard Categories
 DEFAULT_CATEGORIES = [
@@ -185,6 +201,19 @@ def validate_expense_data(data, is_update=False):
     return errors
 
 # --- Frontend Route ---
+
+def ensure_schema():
+    """Add the receipt_key column if it doesn't exist yet (safe to run repeatedly)."""
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("ALTER TABLE expenses ADD COLUMN IF NOT EXISTS receipt_key TEXT")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"[SCHEMA] could not ensure schema: {e}")
+
+ensure_schema()
 
 @app.route("/")
 def index():
@@ -403,9 +432,15 @@ def delete_expense(expense_id):
     """Delete an expense by ID."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM expenses WHERE id = %s", (expense_id,))
+
+    # First, find the expense
+    cursor.execute(
+        "SELECT * FROM expenses WHERE id = %s",
+        (expense_id,)
+    )
     existing = cursor.fetchone()
 
+    # If the expense doesn't exist, return 404
     if not existing:
         conn.close()
         return jsonify({
@@ -413,9 +448,23 @@ def delete_expense(expense_id):
             "message": f"Expense with ID {expense_id} was not found."
         }), 404
 
-    cursor.execute("DELETE FROM expenses WHERE id = %s", (expense_id,))
+    # Delete the expense from PostgreSQL
+    cursor.execute(
+        "DELETE FROM expenses WHERE id = %s",
+        (expense_id,)
+    )
     conn.commit()
     conn.close()
+
+    # Delete its receipt from S3, if one exists
+    if existing.get("receipt_key") and S3_BUCKET:
+        try:
+            get_s3().delete_object(
+                Bucket=S3_BUCKET,
+                Key=existing["receipt_key"]
+            )
+        except Exception as e:
+            print(f"[S3] could not delete receipt: {e}")
 
     return jsonify({
         "status": "success",
@@ -530,6 +579,78 @@ def get_stats():
     })
 
 # --- Error Handlers ---
+
+@app.route("/api/expenses/<int:expense_id>/receipt", methods=["POST"])
+def upload_receipt(expense_id):
+    """Upload a receipt (JPG, PNG or PDF, max 5 MB) for an expense."""
+    if not S3_BUCKET:
+        return jsonify({"status": "error", "message": "Receipt storage is not configured."}), 503
+
+    file = request.files.get("receipt")
+    if not file or not file.filename:
+        return jsonify({"status": "error", "message": "No receipt file provided."}), 400
+
+    ext = ALLOWED_RECEIPT_TYPES.get(file.mimetype)
+    if not ext:
+        return jsonify({"status": "error", "message": "Only JPG, PNG or PDF receipts are allowed."}), 400
+
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size > MAX_RECEIPT_BYTES:
+        return jsonify({"status": "error", "message": "Receipt must be 5 MB or smaller."}), 400
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, receipt_key FROM expenses WHERE id = %s", (expense_id,))
+    existing = cursor.fetchone()
+    if not existing:
+        conn.close()
+        return jsonify({"status": "error", "message": f"Expense with ID {expense_id} was not found."}), 404
+
+    new_key = f"receipts/{expense_id}/{uuid.uuid4().hex}.{ext}"
+    try:
+        get_s3().upload_fileobj(file, S3_BUCKET, new_key, ExtraArgs={"ContentType": file.mimetype})
+    except Exception as e:
+        conn.close()
+        print(f"[S3] upload failed: {e}")
+        return jsonify({"status": "error", "message": "Could not store the receipt."}), 502
+
+    old_key = existing["receipt_key"]
+    cursor.execute("UPDATE expenses SET receipt_key = %s WHERE id = %s", (new_key, expense_id))
+    conn.commit()
+    conn.close()
+
+    if old_key:
+        try:
+            get_s3().delete_object(Bucket=S3_BUCKET, Key=old_key)
+        except Exception as e:
+            print(f"[S3] could not delete old receipt: {e}")
+
+    return jsonify({"status": "success", "message": "Receipt uploaded."}), 201
+
+
+@app.route("/api/expenses/<int:expense_id>/receipt", methods=["GET"])
+def get_receipt_link(expense_id):
+    """Return a temporary (5 minute) link to view the receipt. The bucket stays private."""
+    if not S3_BUCKET:
+        return jsonify({"status": "error", "message": "Receipt storage is not configured."}), 503
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT receipt_key FROM expenses WHERE id = %s", (expense_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row or not row["receipt_key"]:
+        return jsonify({"status": "error", "message": "No receipt for this expense."}), 404
+
+    url = get_s3().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": S3_BUCKET, "Key": row["receipt_key"]},
+        ExpiresIn=300,
+    )
+    return jsonify({"status": "success", "url": url})
 
 @app.errorhandler(404)
 def not_found(e):

@@ -21,6 +21,10 @@ const state = {
     isLoading: false
 };
 
+// Receipt upload rules (must match the backend in app.py)
+const RECEIPT_MAX_BYTES = 5 * 1024 * 1024; // 5 MB
+const RECEIPT_ALLOWED_TYPES = ['image/jpeg', 'image/png', 'application/pdf'];
+
 // Category Color Palette for Badges & Charts
 const CATEGORY_COLORS = {
     "Food & Dining": { bg: "rgba(16, 185, 129, 0.8)", border: "#10b981", class: "cat-food" },
@@ -84,6 +88,8 @@ const elements = {
     addCategory: document.getElementById('addCategory'),
     addDate: document.getElementById('addDate'),
     addNotes: document.getElementById('addNotes'),
+    addReceipt: document.getElementById('addReceipt'),
+    saveAddExpenseBtn: document.getElementById('saveAddExpenseBtn'),
     setTodayBtn: document.getElementById('setTodayBtn'),
 
     editExpenseModal: document.getElementById('editExpenseModal'),
@@ -94,6 +100,9 @@ const elements = {
     editCategory: document.getElementById('editCategory'),
     editDate: document.getElementById('editDate'),
     editNotes: document.getElementById('editNotes'),
+    editReceipt: document.getElementById('editReceipt'),
+    editReceiptHint: document.getElementById('editReceiptHint'),
+    saveEditExpenseBtn: document.getElementById('saveEditExpenseBtn'),
 
     deleteConfirmModal: document.getElementById('deleteConfirmModal'),
     confirmDeleteBtn: document.getElementById('confirmDeleteBtn'),
@@ -359,6 +368,89 @@ function setLoadingState(loading) {
 }
 
 // ==========================================================================
+// Receipts (S3): validate, upload and view
+// ==========================================================================
+
+/**
+ * Check the file chosen in a receipt input.
+ * Returns the File (or null if nothing was chosen).
+ * Returns false and shows an inline error if the file is not allowed.
+ */
+function getValidReceiptFile(inputEl, fieldPrefix) {
+    const file = inputEl && inputEl.files && inputEl.files[0];
+    if (!file) return null;
+
+    if (!RECEIPT_ALLOWED_TYPES.includes(file.type)) {
+        setFieldError(fieldPrefix, 'Receipt must be a JPG, PNG or PDF file.');
+        return false;
+    }
+    if (file.size > RECEIPT_MAX_BYTES) {
+        setFieldError(fieldPrefix, 'Receipt must be 5 MB or smaller.');
+        return false;
+    }
+    return file;
+}
+
+/**
+ * Upload a receipt for an existing expense.
+ * Never throws: returns { ok: boolean, message: string }.
+ */
+async function uploadReceipt(expenseId, file) {
+    try {
+        const formData = new FormData();
+        formData.append('receipt', file);
+
+        const response = await fetch(`/api/expenses/${expenseId}/receipt`, {
+            method: 'POST',
+            body: formData
+        });
+
+        let result = {};
+        try {
+            result = await response.json();
+        } catch (e) {
+            // Non-JSON reply (for example a proxy error page)
+        }
+
+        if (response.ok && result.status === 'success') {
+            return { ok: true, message: result.message || 'Receipt uploaded.' };
+        }
+        return { ok: false, message: result.message || 'Receipt upload failed.' };
+    } catch (err) {
+        console.error('Receipt upload failed:', err);
+        return { ok: false, message: 'Network error while uploading the receipt.' };
+    }
+}
+
+/**
+ * Open a receipt in a new tab using a short-lived link from the backend.
+ * The blank tab is opened first (inside the click) so browsers don't block it.
+ */
+async function viewReceipt(expenseId) {
+    const receiptWindow = window.open('', '_blank');
+    try {
+        const response = await fetch(`/api/expenses/${expenseId}/receipt`);
+        const result = await response.json();
+
+        if (response.ok && result.status === 'success' && result.url) {
+            if (receiptWindow) {
+                receiptWindow.opener = null;
+                receiptWindow.location.href = result.url;
+            } else {
+                window.location.href = result.url;
+            }
+        } else {
+            if (receiptWindow) receiptWindow.close();
+            showToast('No Receipt', result.message || 'Could not open the receipt.', 'error');
+        }
+    } catch (err) {
+        console.error('Failed to open receipt:', err);
+        if (receiptWindow) receiptWindow.close();
+        showToast('Error', 'Could not open the receipt.', 'error');
+    }
+}
+
+// ==========================================================================
 // UI Rendering: KPI Metrics
 // ==========================================================================
 
@@ -452,6 +544,13 @@ function renderExpensesTable(expenses, totalAmount) {
 
         const badgeClass = getCategoryBadgeClass(exp.category);
 
+        // Only expenses that have a receipt get the paperclip button
+        const receiptButton = exp.receipt_key
+            ? `<button class="action-btn action-btn-receipt" title="View receipt" aria-label="View receipt" onclick="viewReceipt(${exp.id})">
+                        <i data-lucide="paperclip"></i>
+                    </button>`
+            : '';
+
         tr.innerHTML = `
             <td class="cell-date">${formatDate(exp.date)}</td>
             <td class="cell-title">
@@ -469,6 +568,7 @@ function renderExpensesTable(expenses, totalAmount) {
             <td class="cell-amount text-right">${formatCurrency(exp.amount)}</td>
             <td class="cell-actions text-center">
                 <div class="table-actions-cell">
+                    ${receiptButton}
                     <button class="action-btn action-btn-edit" title="Edit expense" onclick="openEditModal(${exp.id})">
                         <i data-lucide="edit-2"></i>
                     </button>
@@ -716,7 +816,15 @@ async function handleAddExpenseSubmit(e) {
         hasError = true;
     }
 
+    // Receipt is optional, but if one is chosen it must be valid
+    const receiptFile = getValidReceiptFile(elements.addReceipt, 'addReceipt');
+    if (receiptFile === false) {
+        hasError = true;
+    }
+
     if (hasError) return;
+
+    elements.saveAddExpenseBtn.disabled = true;
 
     try {
         const response = await fetch('/api/expenses', {
@@ -728,6 +836,18 @@ async function handleAddExpenseSubmit(e) {
 
         if (response.ok && result.status === 'success') {
             showToast('Expense Added', `"${title}" ($${amount.toFixed(2)}) recorded successfully.`, 'success');
+
+            // Upload the receipt as a separate step. The expense is already saved,
+            // so a failed upload only shows a warning and loses nothing.
+            if (receiptFile) {
+                const upload = await uploadReceipt(result.expense.id, receiptFile);
+                if (upload.ok) {
+                    showToast('Receipt Attached', 'Your receipt was uploaded.', 'success');
+                } else {
+                    showToast('Receipt Not Saved', `${upload.message} You can add it later with Edit.`, 'error');
+                }
+            }
+
             closeAddModal();
             await loadDashboardData();
         } else {
@@ -739,6 +859,8 @@ async function handleAddExpenseSubmit(e) {
     } catch (err) {
         console.error('Failed to add expense:', err);
         showToast('Error', 'Failed to save expense. Check backend connection.', 'error');
+    } finally {
+        elements.saveAddExpenseBtn.disabled = false;
     }
 }
 
@@ -759,6 +881,12 @@ async function openEditModal(id) {
             elements.editDate.value = exp.date;
             elements.editNotes.value = exp.notes || '';
 
+            // Receipt field: clear any previous choice and tell the user if one exists
+            elements.editReceipt.value = '';
+            elements.editReceiptHint.textContent = exp.receipt_key
+                ? 'A receipt is already attached. Choose a file to replace it.'
+                : '';
+
             elements.editExpenseModal.classList.remove('hidden');
             refreshIcons();
             setTimeout(() => elements.editTitle.focus(), 50);
@@ -774,6 +902,7 @@ async function openEditModal(id) {
 function closeEditModal() {
     elements.editExpenseModal.classList.add('hidden');
     elements.editExpenseForm.reset();
+    elements.editReceiptHint.textContent = '';
     clearFormErrors(elements.editExpenseForm);
 }
 
@@ -806,7 +935,15 @@ async function handleEditExpenseSubmit(e) {
         hasError = true;
     }
 
+    // Receipt is optional, but if one is chosen it must be valid
+    const receiptFile = getValidReceiptFile(elements.editReceipt, 'editReceipt');
+    if (receiptFile === false) {
+        hasError = true;
+    }
+
     if (hasError) return;
+
+    elements.saveEditExpenseBtn.disabled = true;
 
     try {
         const response = await fetch(`/api/expenses/${id}`, {
@@ -818,6 +955,17 @@ async function handleEditExpenseSubmit(e) {
 
         if (response.ok && result.status === 'success') {
             showToast('Expense Updated', `"${title}" has been updated.`, 'success');
+
+            // Upload (or replace) the receipt as a separate step
+            if (receiptFile) {
+                const upload = await uploadReceipt(id, receiptFile);
+                if (upload.ok) {
+                    showToast('Receipt Attached', 'Your receipt was uploaded.', 'success');
+                } else {
+                    showToast('Receipt Not Saved', `${upload.message} Your other changes were saved.`, 'error');
+                }
+            }
+
             closeEditModal();
             await loadDashboardData();
         } else {
@@ -826,6 +974,8 @@ async function handleEditExpenseSubmit(e) {
     } catch (err) {
         console.error('Failed to update expense:', err);
         showToast('Error', 'Failed to update expense.', 'error');
+    } finally {
+        elements.saveEditExpenseBtn.disabled = false;
     }
 }
 
@@ -886,6 +1036,7 @@ window.openEditModal = openEditModal;
 window.closeEditModal = closeEditModal;
 window.openDeleteModal = openDeleteModal;
 window.closeDeleteModal = closeDeleteModal;
+window.viewReceipt = viewReceipt;
 
 // Form Validation Helpers
 function setFieldError(fieldPrefix, message) {
