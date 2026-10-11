@@ -33,10 +33,13 @@ DEFAULT_CATEGORIES = [
 def get_db_connection():
     """Create a database connection with dictionary-like row factory and ensure schema exists."""
     conn = psycopg2.connect(
-        dbname="expense_tracker",
-        user="amrit",
-        host="localhost",
-        port="5432",
+        dbname=os.environ.get("DB_NAME", "expense_tracker"),
+        user=os.environ.get("DB_USER", "amrit"),
+        password=os.environ.get("DB_PASSWORD"),
+        host=os.environ.get("DB_HOST", "localhost"),
+        port=os.environ.get("DB_PORT", "5432"),
+        sslmode=os.environ.get("DB_SSLMODE", "prefer"),
+        connect_timeout=5,
         cursor_factory=RealDictCursor
     )
     cursor = conn.cursor()
