@@ -4,7 +4,33 @@ A personal expense tracker (Flask + PostgreSQL) deployed on AWS as a highly avai
 
 Region: `ap-south-1` (Mumbai)
 
+## Features
+
+- **Expense management:** create, view, edit and delete expenses
+- **Spending analytics:** category breakdown, monthly trend and summary statistics
+- **Search, filter and sort**, with dark and light themes
+- **CSV export**
+- **Receipt uploads:** attach a JPG, PNG or PDF to an expense, stored privately in S3
+- **REST API** for expenses, categories, statistics and a health check
+
+## Technology stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | HTML, CSS, JavaScript, Chart.js |
+| Backend | Python, Flask, Gunicorn |
+| Database | PostgreSQL 16 on Amazon RDS (psycopg2) |
+| Compute | Amazon EC2 (Ubuntu) in an Auto Scaling group |
+| Networking | VPC, public and private subnets, Internet Gateway, NAT Gateway, Application Load Balancer, security groups |
+| Storage and secrets | Amazon S3, AWS Secrets Manager |
+| Access and monitoring | IAM roles, Systems Manager Session Manager, CloudWatch, SNS |
+
 ## Architecture
+
+![SpendWise architecture on AWS](docs/architecture.png)
+
+<details>
+<summary>Text version of the diagram</summary>
 
 ```
                     USERS
@@ -57,6 +83,8 @@ Region: `ap-south-1` (Mumbai)
  -------------------------------------
  Private app subnet -> NAT Gateway (public subnet) -> Internet Gateway
 ```
+
+</details>
 
 ## What each component does
 
@@ -133,6 +161,58 @@ The application reads its configuration from environment variables (`DB_HOST`, `
 
 The full set (networking, security groups, database, load balancer, both demonstrations, IAM, alarms) is in [docs/screenshots.md](docs/screenshots.md). Account identifiers were redacted from the images.
 
+## REST API
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/health` | Health check (used by the load balancer) |
+| GET | `/api/categories` | List expense categories |
+| GET | `/api/expenses` | List, search, filter and sort expenses |
+| POST | `/api/expenses` | Create an expense |
+| GET | `/api/expenses/<id>` | Retrieve one expense |
+| PUT / PATCH | `/api/expenses/<id>` | Update an expense |
+| DELETE | `/api/expenses/<id>` | Delete an expense (and its receipt) |
+| GET | `/api/expenses/stats` | Spending statistics |
+| POST | `/api/expenses/<id>/receipt` | Upload a receipt (JPG, PNG or PDF, max 5 MB) |
+| GET | `/api/expenses/<id>/receipt` | Get a 5-minute link to view the receipt |
+
+## Run locally
+
+Requires Python 3, PostgreSQL 16 and Git.
+
+```bash
+git clone https://github.com/Amrit-3/spendwise-aws-cloud-project.git
+cd spendwise-aws-cloud-project
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+Create a local database named `expense_tracker` and a PostgreSQL user named `amrit`, then start the app:
+
+```bash
+python3 app.py
+```
+
+Open the URL it prints (usually `http://127.0.0.1:5000`; macOS may use 5001 because AirPlay holds 5000).
+
+The app reads its settings from environment variables, and the defaults suit a local setup:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `DB_HOST` | `localhost` | Database host (the RDS endpoint on AWS) |
+| `DB_NAME` | `expense_tracker` | Database name |
+| `DB_USER` | `amrit` | Database user |
+| `DB_PASSWORD` | none | Database password (from Secrets Manager on AWS) |
+| `DB_SSLMODE` | `prefer` | Set to `require` for RDS |
+| `S3_BUCKET` | none | Receipt bucket. When unset, uploads reply "not configured" and everything else still works |
+
+Never commit passwords or AWS keys.
+
+## Testing
+
+The application was tested manually: CRUD operations, validation, receipt upload and download, health checks behind the load balancer, self-healing and scale-out under load. The scripts `test_backend.py` and `verify_live_app.py` predate the PostgreSQL and S3 changes and have not been updated.
+
 ## Security notes
 
 - No SSH port is open and there are no key pairs. Shell access is through Session Manager.
@@ -171,6 +251,7 @@ infra/
   spendwise.service     systemd unit
 docs/
   screenshots/          Console and demo screenshots
+  architecture.png      Architecture diagram
   screenshots.md        Full screenshot gallery with captions
   troubleshooting.md    Problems hit while building, and the fixes
   teardown.md           How to delete everything and stop billing
@@ -179,3 +260,7 @@ docs/
 ## Cost note
 
 The main hourly costs are the NAT Gateway, the Application Load Balancer, the RDS instance and the EC2 instances. This project was built to learn and demonstrate the architecture, and it was torn down afterward (`docs/teardown.md`).
+
+## License
+
+MIT. See the `LICENSE` file.
