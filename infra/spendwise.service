@@ -1,0 +1,16 @@
+# /etc/systemd/system/spendwise.service  (reference copy)
+[Unit]
+Description=SpendWise Flask app (Gunicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=spendwise
+Group=spendwise
+WorkingDirectory=/opt/spendwise
+ExecStart=/opt/spendwise/start.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
