@@ -4,3 +4,11 @@ __pycache__/
 .git/
 .env
 *.md
+Dockerfile
+.dockerignore
+.gitignore
+docker-compose.yml
+docs/
+infra/
+test_*.py
+verify_live_app.py
