@@ -16,8 +16,7 @@ services:
     restart: unless-stopped
 
   web:
-    build: .
-    image: spendwise:1.0
+    image: amritdsingh/spendwise:1.3
     container_name: spendwise-web
     ports:
       - "8000:8000"
